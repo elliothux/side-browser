@@ -1,0 +1,9 @@
+@import "./base.css";
+
+@reference "tailwindcss";
+@tailwind utilities;
+
+body {
+  overflow: hidden;
+  user-select: none;
+}

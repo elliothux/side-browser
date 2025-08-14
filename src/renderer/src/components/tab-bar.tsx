@@ -1,94 +1,106 @@
-import { Button } from "@/components/ui/button";
-import { PlusIcon, XMarkIcon } from "@heroicons/react/24/solid";
-import { useEffect, useState } from "react";
+import { Plus, X } from "lucide-react";
+import React from "react";
+import { Button } from "../ui/button";
 
 interface Tab {
-  id: number;
-  title: string;
+  id: string;
   url: string;
+  title: string;
+  isActive: boolean;
 }
 
-export function TabBar() {
-  const [tabs, setTabs] = useState<Tab[]>([]);
-  const [activeTabId, setActiveTabId] = useState<number | null>(null);
+interface TabBarProps {
+  tabs: Tab[];
+  onTabSwitch: (id: string) => void;
+  onTabClose: (id: string) => void;
+  onTabCreate: () => void;
+}
 
-  useEffect(() => {
-    const cleanup = window.api.onTabsUpdated((updatedTabs) => {
-      setTabs(updatedTabs);
+export function TabBar({
+  tabs,
+  onTabSwitch,
+  onTabClose,
+  onTabCreate,
+}: TabBarProps) {
+  const handleTabClick = (id: string) => {
+    onTabSwitch(id);
+  };
 
-      setActiveTabId((currentActiveTab) => {
-        const activeTabExists = updatedTabs.some(
-          (tab) => tab.id === currentActiveTab,
-        );
-
-        if (activeTabExists) {
-          return currentActiveTab; // Active tab still exists, no change
-        }
-        if (updatedTabs.length > 0) {
-          const newActiveId = updatedTabs[0].id;
-          window.api.switchTab(newActiveId); // Tell main process to switch view
-          return newActiveId; // Switch to the first available tab
-        }
-        return null; // No tabs left
-      });
-    });
-
-    return () => {
-      cleanup();
-    };
-  }, []); // Empty dependency array ensures this runs only once
+  const handleTabClose = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    onTabClose(id);
+  };
 
   const handleNewTab = () => {
-    const url = prompt("Enter URL for new tab:", "https://github.com");
-    if (url) {
-      window.api.createTab(url);
-    }
+    onTabCreate();
   };
 
-  const handleSwitchTab = (id: number) => {
-    setActiveTabId(id);
-    window.api.switchTab(id);
-  };
-
-  const handleCloseTab = (e: React.MouseEvent, id: number) => {
-    e.stopPropagation(); // Prevent switchTab from firing
-    window.api.closeTab(id);
+  const truncateTitle = (title: string, maxLength: number = 20) => {
+    if (title.length <= maxLength) return title;
+    return title.substring(0, maxLength) + "...";
   };
 
   return (
-    <div
-      className="flex h-12 w-full items-center space-x-2 bg-gray-100 p-2 select-none dark:bg-gray-800"
-      style={{ WebkitAppRegion: "drag" }}
-    >
-      <div className="flex items-center space-x-1 overflow-x-auto">
+    <div className="flex h-12 items-center gap-1 border-b border-gray-200 bg-white px-2">
+      {/* Tab list */}
+      <div className="flex flex-1 items-center gap-1 overflow-x-auto">
         {tabs.map((tab) => (
-          <Button
+          <button
             key={tab.id}
-            variant={activeTabId === tab.id ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => handleSwitchTab(tab.id)}
-            className="h-8 flex-shrink-0 px-2 text-xs"
-            style={{ WebkitAppRegion: "no-drag" }}
+            type="button"
+            className={`group flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-t-lg border border-transparent px-3 py-2 transition-all hover:bg-gray-50 ${
+              tab.isActive
+                ? "border-gray-300 bg-white shadow-sm"
+                : "hover:border-gray-200"
+            }`}
+            onClick={() => handleTabClick(tab.id)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                handleTabClick(tab.id);
+              }
+            }}
           >
-            <span className="max-w-28 truncate">
-              {tab.title || "Loading..."}
+            {/* Tab title */}
+            <span
+              className={`min-w-0 flex-1 truncate text-sm font-medium ${
+                tab.isActive ? "text-gray-900" : "text-gray-600"
+              }`}
+              title={tab.title}
+            >
+              {truncateTitle(tab.title)}
             </span>
-            <XMarkIcon
-              className="ml-2 h-4 w-4 flex-shrink-0 rounded-full p-0.5 hover:bg-red-500/20"
-              onClick={(e) => handleCloseTab(e, tab.id)}
-            />
-          </Button>
+
+            {/* Close button */}
+            <button
+              type="button"
+              className={`opacity-0 transition-opacity group-hover:opacity-100 ${
+                tab.isActive ? "opacity-100" : ""
+              }`}
+              onClick={(e) => handleTabClose(e, tab.id)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleTabClose(e as any, tab.id);
+                }
+              }}
+              title="Close tab"
+            >
+              <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+            </button>
+          </button>
         ))}
       </div>
 
+      {/* New tab button */}
       <Button
         variant="ghost"
-        size="icon"
-        className="h-8 w-8 flex-shrink-0"
+        size="sm"
         onClick={handleNewTab}
-        style={{ WebkitAppRegion: "no-drag" }}
+        className="h-8 w-8 p-0 hover:bg-gray-100"
+        title="New tab"
       >
-        <PlusIcon className="h-4 w-4" />
+        <Plus className="h-4 w-4" />
       </Button>
     </div>
   );

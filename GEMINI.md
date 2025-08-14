@@ -25,6 +25,7 @@ This document outlines the key decisions and principles for this project, as dir
 - **Maintainability**: Write code that is simple, direct, and easy to maintain.
 
 ## 4. Code Style
+
 - use kebab-case style filenames
 - don't use default export
 - don't use barrel files for exporting
