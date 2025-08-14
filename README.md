@@ -58,7 +58,7 @@ $ npm run build:linux
 ### Key Components
 
 - `src/main/tab-manager.ts`: Core tab management logic
-- `src/main/database.ts`: PouchDB database for tab persistence
+- `src/main/database.ts`: Lowdb JSON database for tab persistence
 - `src/main/window.ts`: Window creation and IPC handlers
 - `src/renderer/src/components/tab-bar.tsx`: Tab bar UI component
 - `src/renderer/src/lib/use-tabs.ts`: React hook for tab management
@@ -77,4 +77,4 @@ $ npm run build:linux
 - **Tailwind CSS**: Utility-first CSS framework
 - **IPC**: Inter-process communication for tab management
 - **BrowserWindow**: Electron's web content container
-- **PouchDB**: Local database for tab persistence (binary format, secure storage)
+- **Lowdb**: Lightweight local JSON database for tab persistence

@@ -1,60 +1,37 @@
 import { BrowserWindow, shell } from "electron";
 import { nanoid } from "nanoid";
-import { TabData, tabDatabase } from "./database";
+import { ConfigDatabase } from "./db/config";
+import { Tab, TabDatabase } from "./db/tab";
 import { getBaseWindow } from "./window";
-
-// Extended Tab interface that includes BrowserWindow
-export interface Tab extends TabData {
-  window: BrowserWindow;
-  isActive: boolean;
-}
 
 const SIDEBAR_WIDTH = 48;
 const TOPBAR_HEIGHT = 48;
 
 const tabs: Map<string, Tab> = new Map();
+const windows: Map<string, BrowserWindow> = new Map();
+
 let activeTabId: string | null = null;
 
 export async function createTab(
   url: string = "https://www.google.com",
 ): Promise<Tab> {
   const id = nanoid();
-  const webWindow = createBrowserWindow(id);
-
-  // Create tab object
   const tab: Tab = {
     id,
     url,
     title: "Loading...",
-    createdAt: new Date().toISOString(),
-    lastAccessed: new Date().toISOString(),
-    type: "tab",
-    window: webWindow,
-    isActive: false,
+    createdAt: Date.now(),
+    lastAccessed: Date.now(),
   };
-
   tabs.set(id, tab);
-
-  // Save to database
-  await tabDatabase.addTab({
+  windows.set(id, createBrowserWindow(tab));
+  await TabDatabase.addTab({
     id,
     url,
     title: "Loading...",
-    createdAt: new Date().toISOString(),
-    lastAccessed: new Date().toISOString(),
-    type: "tab",
+    createdAt: Date.now(),
+    lastAccessed: Date.now(),
   });
-
-  // Load URL
-  webWindow
-    .loadURL(url)
-    .then(() => {
-      console.log(`Tab ${id} loaded successfully: ${url}`);
-    })
-    .catch((error) => {
-      console.error(`Failed to load tab ${id}:`, error);
-      updateTabTitle(id, "Error");
-    });
 
   // If this is the first tab, make it active
   if (tabs.size === 1) {
@@ -64,7 +41,7 @@ export async function createTab(
   return tab;
 }
 
-function createBrowserWindow(tabId: string): BrowserWindow {
+function createBrowserWindow(tab: Tab): BrowserWindow {
   const baseWindow = getBaseWindow();
   const [baseX, baseY] = baseWindow.getPosition();
   const baseBounds = baseWindow.getBounds();
@@ -100,8 +77,19 @@ function createBrowserWindow(tabId: string): BrowserWindow {
 
   // Handle title updates
   webWindow.webContents.on("page-title-updated", (_, title) => {
-    updateTabTitle(tabId, title);
+    updateTabTitle(tab.id, title);
   });
+
+  // Load URL
+  webWindow
+    .loadURL(tab.url)
+    .then(() => {
+      console.log(`Tab ${tab.id} loaded successfully: ${tab.url}`);
+    })
+    .catch((error) => {
+      console.error(`Failed to load tab ${tab.id}:`, error);
+      updateTabTitle(tab.id, "Error");
+    });
 
   return webWindow;
 }
@@ -114,15 +102,17 @@ export function switchTab(id: string): void {
   }
 
   // Hide all tabs
-  tabs.forEach((t) => {
-    t.window.hide();
-    t.isActive = false;
+  windows.forEach((w) => {
+    w.hide();
   });
 
   // Show and activate the target tab
-  tab.window.show();
-  tab.isActive = true;
+  const targetWindow = windows.get(id);
+  if (targetWindow) {
+    targetWindow.show();
+  }
   activeTabId = id;
+  void ConfigDatabase.setActiveTabId(id);
 
   console.log(`Switched to tab ${id}`);
 }
@@ -135,13 +125,15 @@ export async function closeTab(id: string): Promise<void> {
   }
 
   // Close the window
-  tab.window.close();
+  const win = windows.get(id);
+  win?.close();
 
-  // Remove from tabs map
+  // Remove from maps
   tabs.delete(id);
+  windows.delete(id);
 
   // Remove from database
-  await tabDatabase.removeTab(id);
+  await TabDatabase.removeTab(id);
 
   // If this was the active tab, switch to another tab
   if (activeTabId === id) {
@@ -150,6 +142,7 @@ export async function closeTab(id: string): Promise<void> {
       switchTab(remainingTabs[remainingTabs.length - 1]);
     } else {
       activeTabId = null;
+      void ConfigDatabase.setActiveTabId(null);
     }
   }
 
@@ -161,12 +154,20 @@ export function getActiveTab(): Tab | null {
   return tabs.get(activeTabId) || null;
 }
 
+export function getActiveTabId(): string | null {
+  return activeTabId;
+}
+
 export function getAllTabs(): Tab[] {
   return Array.from(tabs.values());
 }
 
 export function getTab(id: string): Tab | null {
   return tabs.get(id) || null;
+}
+
+export function getWindow(tabId: string): BrowserWindow | undefined {
+  return windows.get(tabId);
 }
 
 export async function updateTabTitle(id: string, title: string): Promise<void> {
@@ -176,9 +177,9 @@ export async function updateTabTitle(id: string, title: string): Promise<void> {
     console.log(`Updated tab ${id} title: ${title}`);
 
     // Update in database
-    await tabDatabase.updateTab(id, {
+    await TabDatabase.updateTab(id, {
       title,
-      lastAccessed: new Date().toISOString(),
+      lastAccessed: Date.now(),
     });
   }
 }
@@ -186,16 +187,16 @@ export async function updateTabTitle(id: string, title: string): Promise<void> {
 export function updateWindowPositions(): void {
   const baseWindow = getBaseWindow();
   const [baseX, baseY] = baseWindow.getPosition();
-  tabs.forEach((tab) => {
-    tab.window.setPosition(baseX + SIDEBAR_WIDTH, baseY + TOPBAR_HEIGHT);
+  windows.forEach((win) => {
+    win.setPosition(baseX + SIDEBAR_WIDTH, baseY + TOPBAR_HEIGHT);
   });
 }
 
 export function updateWindowSizes(): void {
   const baseWindow = getBaseWindow();
   const baseBounds = baseWindow.getBounds();
-  tabs.forEach((tab) => {
-    tab.window.setSize(
+  windows.forEach((win) => {
+    win.setSize(
       baseBounds.width - SIDEBAR_WIDTH,
       baseBounds.height - TOPBAR_HEIGHT,
     );
@@ -204,25 +205,11 @@ export function updateWindowSizes(): void {
 
 // Database-related functions
 export async function initializeTabs() {
-  await tabDatabase.initialize();
-  const savedTabs = await tabDatabase.getTabs();
+  const savedTabs = await TabDatabase.getTabs();
   savedTabs.forEach((tab) => {
-    const webWindow = createBrowserWindow(tab.id);
-    tabs.set(tab.id, { ...tab, window: webWindow, isActive: false });
+    const webWindow = createBrowserWindow(tab);
+    tabs.set(tab.id, tab);
+    windows.set(tab.id, webWindow);
   });
   return savedTabs;
-}
-
-export async function saveAllTabsToDatabase() {
-  const tabDataArray: TabData[] = Array.from(tabs.values()).map((tab) => ({
-    id: tab.id,
-    url: tab.url,
-    title: tab.title,
-    createdAt: tab.createdAt,
-    lastAccessed: new Date().toISOString(),
-    type: "tab",
-  }));
-
-  await tabDatabase.saveTabs(tabDataArray);
-  console.log(`Saved ${tabDataArray.length} tabs to database`);
 }

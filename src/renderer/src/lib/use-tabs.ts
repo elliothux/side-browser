@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 
-interface Tab {
+interface BaseTab {
   id: string;
   url: string;
   title: string;
-  isActive: boolean;
 }
 
 export function useTabs() {
-  const [tabs, setTabs] = useState<Tab[]>([]);
+  const [tabs, setTabs] = useState<BaseTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -39,23 +38,18 @@ export function useTabs() {
           id: data.id,
           url: data.url,
           title: data.title,
-          isActive: data.isActive,
         },
       ]);
-      if (data.isActive) {
-        setActiveTabId(data.id);
-      }
     });
 
     // Tab switched event
     window.electronAPI.onTabSwitched((data) => {
-      setTabs(data.tabs);
       setActiveTabId(data.activeTabId);
     });
 
     // Tab closed event
     window.electronAPI.onTabClosed((data) => {
-      setTabs(data.tabs);
+      setTabs((prev) => prev.filter((t) => t.id !== data.closedTabId));
       setActiveTabId(data.activeTabId);
     });
 
@@ -114,7 +108,7 @@ export function useTabs() {
   }, []);
 
   return {
-    tabs,
+    tabs: tabs.map((t) => ({ ...t, isActive: t.id === activeTabId })),
     activeTabId,
     isLoading,
     createTab,

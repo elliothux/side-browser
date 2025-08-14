@@ -8,41 +8,21 @@ export interface IElectronAPI {
         id: string;
         url: string;
         title: string;
-        isActive: boolean;
       }>;
       activeTabId: string | null;
     }>;
     navigate: (id: string, url: string) => Promise<boolean>;
   };
   onTabCreated: (
-    callback: (data: {
-      id: string;
-      url: string;
-      title: string;
-      isActive: boolean;
-    }) => void,
+    callback: (data: { id: string; url: string; title: string }) => void,
   ) => void;
   onTabSwitched: (
-    callback: (data: {
-      activeTabId: string;
-      tabs: Array<{
-        id: string;
-        url: string;
-        title: string;
-        isActive: boolean;
-      }>;
-    }) => void,
+    callback: (data: { activeTabId: string | null }) => void,
   ) => void;
   onTabClosed: (
     callback: (data: {
       closedTabId: string;
       activeTabId: string | null;
-      tabs: Array<{
-        id: string;
-        url: string;
-        title: string;
-        isActive: boolean;
-      }>;
     }) => void,
   ) => void;
   onTabNavigated: (

@@ -1,7 +1,7 @@
 import { electronApp, optimizer } from "@electron-toolkit/utils";
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, screen } from "electron";
 import { registerShortcut } from "./shortcut";
-import { createWindows } from "./window";
+import { createBaseWindow } from "./window";
 
 app.whenReady().then(() => {
   electronApp.setAppUserModelId("com.electron");
@@ -12,11 +12,11 @@ app.whenReady().then(() => {
 
   app.on("activate", function () {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindows();
+      createWindow();
     }
   });
 
-  createWindows();
+  createWindow();
   registerShortcut();
 });
 
@@ -25,3 +25,16 @@ app.on("window-all-closed", () => {
     app.quit();
   }
 });
+
+function createWindow() {
+  const screenSize = screen.getPrimaryDisplay().workAreaSize;
+  const windowWidth = 800;
+  const windowHeight = screenSize.height;
+
+  createBaseWindow(
+    windowWidth,
+    windowHeight,
+    screenSize.width - windowWidth,
+    0,
+  );
+}

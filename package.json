@@ -30,9 +30,9 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "electron-updater": "^6.3.9",
+    "lowdb": "^7.0.0",
     "lucide-react": "^0.539.0",
     "nanoid": "^5.1.5",
-    "pouchdb": "^9.0.0",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7"
   },
